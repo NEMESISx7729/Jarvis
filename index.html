@@ -1,0 +1,671 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#000000" />
+<meta name="description" content="JARVIS — a voice-activated AI assistant." />
+<title>J.A.R.V.I.S. · Voice Interface</title>
+<style>
+  /* ============================================================
+     0. RESET & DESIGN TOKENS
+     ============================================================ */
+  *,
+  *::before,
+  *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --cyan: #00e5ff;
+    --cyan-bright: #7df5ff;
+    --cyan-dim: rgba(0, 229, 255, 0.55);
+    --cyan-faint: rgba(0, 229, 255, 0.14);
+    --border: rgba(0, 229, 255, 0.18);
+    --border-strong: rgba(0, 229, 255, 0.38);
+    --glass-top: rgba(10, 20, 26, 0.74);
+    --glass-bottom: rgba(3, 8, 11, 0.58);
+    --text: #ffffff;
+    --text-soft: rgba(226, 245, 250, 0.86);
+    --text-dim: rgba(180, 214, 224, 0.58);
+    --amber: #ffb74d;
+    --font-mono: "SFMono-Regular", ui-monospace, "Cascadia Mono", "Roboto Mono",
+      Menlo, Consolas, monospace;
+    --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+    --radius: 16px;
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    background: #000000;
+    color: var(--text);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    min-height: 100dvh;
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(8px, 1.4vmin, 16px);
+    padding: clamp(8px, 1.6vmin, 18px);
+    padding-top: max(clamp(8px, 1.6vmin, 18px), env(safe-area-inset-top));
+    padding-bottom: max(clamp(8px, 1.6vmin, 18px), env(safe-area-inset-bottom));
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ============================================================
+     1. AMBIENT BACKGROUND LAYERS
+     ============================================================ */
+  .bg-grid,
+  .bg-glow {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(0, 229, 255, 0.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 229, 255, 0.055) 1px, transparent 1px);
+    background-size: 46px 46px;
+    -webkit-mask-image: radial-gradient(circle at 50% 42%, #000 0%, rgba(0,0,0,0.35) 55%, transparent 80%);
+    mask-image: radial-gradient(circle at 50% 42%, #000 0%, rgba(0,0,0,0.35) 55%, transparent 80%);
+    opacity: 0.9;
+  }
+
+  .bg-glow {
+    background:
+      radial-gradient(circle at 50% 38%, rgba(0, 229, 255, 0.16), transparent 46%),
+      radial-gradient(circle at 50% 118%, rgba(0, 229, 255, 0.10), transparent 58%);
+  }
+
+  /* ============================================================
+     2. GLASSMORPHISM PANELS
+     ============================================================ */
+  .glass {
+    position: relative;
+    z-index: 1;
+    background: linear-gradient(180deg, var(--glass-top), var(--glass-bottom));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.045),
+      inset 0 0 40px rgba(0, 229, 255, 0.03),
+      0 18px 50px rgba(0, 0, 0, 0.75),
+      0 0 70px rgba(0, 229, 255, 0.05);
+  }
+
+  /* ============================================================
+     3. TOP HUD
+     ============================================================ */
+  .hud {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 16px;
+    padding: clamp(8px, 1.4vmin, 14px) clamp(12px, 2.2vmin, 20px);
+  }
+
+  .hud-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+
+  .brand-mark {
+    display: grid;
+    place-items: center;
+    width: clamp(30px, 4.6vmin, 40px);
+    aspect-ratio: 1;
+    border-radius: 11px;
+    border: 1px solid var(--border-strong);
+    background: radial-gradient(circle at 50% 40%, rgba(0, 229, 255, 0.28), rgba(0, 229, 255, 0.04));
+    color: var(--cyan);
+    font-size: clamp(14px, 2.1vmin, 18px);
+    box-shadow: 0 0 18px rgba(0, 229, 255, 0.35), inset 0 0 12px rgba(0, 229, 255, 0.22);
+    flex: 0 0 auto;
+  }
+
+  .brand-text { min-width: 0; }
+
+  .brand-text h1 {
+    font-family: var(--font-mono);
+    font-size: clamp(12px, 1.9vmin, 16px);
+    font-weight: 600;
+    letter-spacing: 0.24em;
+    color: #fff;
+    white-space: nowrap;
+    text-shadow: 0 0 16px rgba(0, 229, 255, 0.55);
+  }
+
+  .brand-text p {
+    font-family: var(--font-mono);
+    font-size: clamp(8px, 1.25vmin, 10px);
+    letter-spacing: 0.16em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .hud-mid {
+    flex: 1 1 auto;
+    display: flex;
+    justify-content: center;
+    min-width: 132px;
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 13px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(0, 229, 255, 0.045);
+    font-family: var(--font-mono);
+    font-size: clamp(9px, 1.35vmin, 11px);
+    letter-spacing: 0.2em;
+    color: var(--cyan-bright);
+    white-space: nowrap;
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 10px var(--cyan), 0 0 22px rgba(0, 229, 255, 0.7);
+    animation: dotPulse 2.4s ease-in-out infinite;
+    flex: 0 0 auto;
+  }
+
+  .status-pill[data-mode="listening"] {
+    border-color: var(--border-strong);
+    background: rgba(0, 229, 255, 0.12);
+    color: #fff;
+  }
+  .status-pill[data-mode="listening"] .dot { animation-duration: 0.7s; }
+
+  .status-pill[data-mode="thinking"] { color: var(--amber); border-color: rgba(255, 183, 77, 0.4); }
+  .status-pill[data-mode="thinking"] .dot {
+    background: var(--amber);
+    box-shadow: 0 0 10px var(--amber);
+    animation-duration: 0.5s;
+  }
+
+  .status-pill[data-mode="speaking"] { color: var(--cyan-bright); }
+  .status-pill[data-mode="speaking"] .dot { animation-duration: 0.5s; }
+
+  @keyframes dotPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.7); }
+  }
+
+  .hud-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+
+  .clock-block { text-align: right; line-height: 1.15; }
+
+  .clock {
+    font-family: var(--font-mono);
+    font-size: clamp(14px, 2.4vmin, 20px);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: #fff;
+    text-shadow: 0 0 14px rgba(0, 229, 255, 0.6);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .dateline {
+    font-family: var(--font-mono);
+    font-size: clamp(8px, 1.25vmin, 10px);
+    letter-spacing: 0.18em;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .icon-btn {
+    font-family: var(--font-mono);
+    font-size: clamp(8px, 1.3vmin, 10.5px);
+    letter-spacing: 0.14em;
+    color: var(--cyan-bright);
+    background: rgba(0, 229, 255, 0.06);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 10px;
+    cursor: pointer;
+    transition: background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .icon-btn:hover { background: rgba(0, 229, 255, 0.14); box-shadow: 0 0 16px rgba(0, 229, 255, 0.25); }
+  .icon-btn:active { transform: translateY(1px); }
+  .icon-btn.muted { color: rgba(255, 255, 255, 0.42); border-color: rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.04); }
+
+  /* ============================================================
+     4. STAGE + ARC REACTOR
+     ============================================================ */
+  .stage {
+    position: relative;
+    z-index: 1;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(10px, 2vmin, 22px);
+    padding: clamp(4px, 1.5vmin, 12px) 0;
+  }
+
+  .reactor {
+    position: relative;
+    width: clamp(140px, min(40vmin, 30vh), 280px);
+    aspect-ratio: 1 / 1;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    border-radius: 50%;
+    cursor: pointer;
+    outline: none;
+    display: grid;
+    place-items: center;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: transform 0.18s ease;
+  }
+
+  .reactor:active { transform: scale(0.965); }
+
+  .reactor:focus-visible {
+    box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.75), 0 0 30px rgba(0, 229, 255, 0.4);
+  }
+
+  .reactor > span { position: absolute; pointer-events: none; }
+
+  /* Outer solid ring */
+  .ring-1 {
+    inset: 0;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 229, 255, 0.34);
+    box-shadow:
+      0 0 26px rgba(0, 229, 255, 0.22),
+      inset 0 0 26px rgba(0, 229, 255, 0.12);
+    transition: border-color 0.35s ease, box-shadow 0.35s ease;
+  }
+
+  /* Inner dashed ring */
+  .ring-2 {
+    inset: 11%;
+    border-radius: 50%;
+    border: 1px dashed rgba(0, 229, 255, 0.42);
+    animation: spin 22s linear infinite;
+    transition: border-color 0.35s ease;
+  }
+
+  /* Tick / gear ring */
+  .ticks {
+    inset: -6%;
+    border-radius: 50%;
+    background: repeating-conic-gradient(
+      from 0deg,
+      rgba(0, 229, 255, 0.85) 0deg 1.6deg,
+      transparent 1.6deg 8deg
+    );
+    -webkit-mask-image: radial-gradient(closest-side, transparent 74%, #000 75%, #000 88%, transparent 89%);
+    mask-image: radial-gradient(closest-side, transparent 74%, #000 75%, #000 88%, transparent 89%);
+    opacity: 0.5;
+    animation: spin 30s linear infinite reverse;
+    transition: opacity 0.35s ease;
+  }
+
+  /* Glowing core */
+  .core {
+    inset: 25%;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle at 50% 42%,
+      #ffffff 0%,
+      #d9fbff 12%,
+      #00e5ff 38%,
+      rgba(0, 229, 255, 0.42) 62%,
+      rgba(0, 229, 255, 0) 78%
+    );
+    box-shadow:
+      0 0 30px rgba(0, 229, 255, 0.75),
+      0 0 80px rgba(0, 229, 255, 0.32),
+      inset 0 0 26px rgba(255, 255, 255, 0.5);
+    transition: box-shadow 0.35s ease, filter 0.35s ease;
+  }
+
+  /* Hot white centre */
+  .core-inner {
+    inset: 37%;
+    border-radius: 50%;
+    background: radial-gradient(circle, #ffffff 0%, #eaffff 42%, rgba(0, 229, 255, 0.55) 76%, rgba(0, 229, 255, 0) 100%);
+    filter: blur(1px);
+    opacity: 0.92;
+    transition: opacity 0.35s ease;
+  }
+
+  /* Expanding halo rings (only while listening) */
+  .reactor::before,
+  .reactor::after {
+    content: "";
+    position: absolute;
+    inset: 6%;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 229, 255, 0.6);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* ---------- LISTENING STATE ---------- */
+  .reactor.listening .ring-1 {
+    border-color: rgba(0, 229, 255, 0.85);
+    box-shadow:
+      0 0 40px rgba(0, 229, 255, 0.5),
+      inset 0 0 40px rgba(0, 229, 255, 0.25);
+    animation: ringPulse 1.8s ease-in-out infinite;
+  }
+  .reactor.listening .ring-2 { border-color: rgba(125, 245, 255, 0.85); animation-duration: 5s; }
+  .reactor.listening .ticks { opacity: 0.95; animation-duration: 9s; }
+  .reactor.listening .core { animation: corePulse 1.15s ease-in-out infinite; }
+  .reactor.listening .core-inner { opacity: 1; }
+  .reactor.listening::before { animation: halo 2s ease-out infinite; }
+  .reactor.listening::after { animation: halo 2s ease-out infinite 0.7s; }
+
+  /* ---------- THINKING STATE ---------- */
+  .reactor.thinking .ring-2 { border-color: rgba(255, 255, 255, 0.55); animation-duration: 1.4s; }
+  .reactor.thinking .core {
+    animation: corePulse 1.5s ease-in-out infinite;
+    filter: saturate(0.55) brightness(0.92);
+  }
+  .reactor.thinking .ticks { animation-duration: 12s; opacity: 0.75; }
+
+  /* ---------- SPEAKING STATE ---------- */
+  .reactor.speaking .core { animation: corePulse 0.55s ease-in-out infinite; }
+  .reactor.speaking .ticks { animation-duration: 6s; opacity: 0.9; }
+  .reactor.speaking .ring-1 { border-color: rgba(0, 229, 255, 0.6); }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @keyframes corePulse {
+    0%, 100% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.07); filter: brightness(1.45); }
+  }
+
+  @keyframes ringPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.035); }
+  }
+
+  @keyframes halo {
+    0% { transform: scale(0.86); opacity: 0.75; }
+    100% { transform: scale(1.45); opacity: 0; }
+  }
+
+  /* ---------- CAPTIONS UNDER THE REACTOR ---------- */
+  .reactor-caption {
+    font-family: var(--font-mono);
+    font-size: clamp(9px, 1.5vmin, 12px);
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: var(--cyan-dim);
+    text-align: center;
+    transition: color 0.25s ease;
+  }
+
+  .interim {
+    min-height: 1.4em;
+    max-width: min(90vw, 620px);
+    text-align: center;
+    font-size: clamp(13px, 1.9vmin, 16px);
+    line-height: 1.45;
+    color: var(--cyan-bright);
+    font-style: italic;
+    opacity: 0.92;
+    word-wrap: break-word;
+  }
+
+  /* ============================================================
+     5. CONSOLE / TERMINAL
+     ============================================================ */
+  .console {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 132px;
+    max-height: min(36vh, 320px);
+    overflow: hidden;
+  }
+
+  .console-head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px clamp(12px, 2vmin, 18px);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: clamp(9px, 1.35vmin, 11px);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .console-head .title { display: inline-flex; align-items: center; gap: 8px; }
+
+  .console-head .title::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 10px var(--cyan);
+  }
+
+  .clear-btn {
+    font-family: var(--font-mono);
+    font-size: clamp(8px, 1.25vmin, 10px);
+    letter-spacing: 0.18em;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 4px 9px;
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+  .clear-btn:hover { color: var(--cyan); border-color: var(--border-strong); }
+
+  .console-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: clamp(10px, 1.8vmin, 16px) clamp(12px, 2vmin, 18px);
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 229, 255, 0.35) transparent;
+  }
+
+  .console-body::-webkit-scrollbar { width: 6px; }
+  .console-body::-webkit-scrollbar-track { background: transparent; }
+  .console-body::-webkit-scrollbar-thumb {
+    background: rgba(0, 229, 255, 0.28);
+    border-radius: 999px;
+  }
+
+  .line {
+    position: relative;
+    padding-left: 13px;
+    animation: fadeUp 0.32s ease both;
+  }
+
+  .line::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 2px;
+    bottom: 2px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--cyan);
+    box-shadow: 0 0 9px rgba(0, 229, 255, 0.8);
+    opacity: 0.85;
+  }
+
+  .line.user::before { background: rgba(255, 255, 255, 0.35); box-shadow: none; }
+  .line.system::before { background: var(--amber); box-shadow: 0 0 9px rgba(255, 183, 77, 0.75); }
+
+  .who {
+    font-family: var(--font-mono);
+    font-size: clamp(8px, 1.25vmin, 10px);
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 4px;
+    opacity: 0.9;
+  }
+
+  .line.user .who { color: rgba(200, 225, 235, 0.6); }
+  .line.system .who { color: var(--amber); }
+
+  .msg {
+    font-size: clamp(13px, 1.85vmin, 15px);
+    line-height: 1.55;
+    color: var(--text-soft);
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .line.jarvis .msg { color: #eafaff; }
+  .line.user .msg { color: rgba(255, 255, 255, 0.82); }
+  .line.system .msg {
+    color: rgba(255, 199, 122, 0.92);
+    font-family: var(--font-mono);
+    font-size: clamp(11px, 1.55vmin, 12.5px);
+  }
+
+  .line a.link {
+    display: inline-block;
+    margin-top: 8px;
+    font-family: var(--font-mono);
+    font-size: clamp(11px, 1.5vmin, 12.5px);
+    letter-spacing: 0.1em;
+    color: var(--cyan);
+    text-decoration: none;
+    border-bottom: 1px dashed rgba(0, 229, 255, 0.6);
+    padding-bottom: 2px;
+  }
+  .line a.link:hover { color: #fff; border-bottom-color: #fff; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ============================================================
+     6. RESPONSIVE TWEAKS
+     ============================================================ */
+  @media (max-width: 640px) {
+    .brand-text p { display: none; }
+    .hud-mid { order: 3; flex: 1 1 100%; }
+    .hud-right { margin-left: auto; }
+    .console { max-height: 32vh; min-height: 116px; }
+    .clock { font-size: 15px; }
+  }
+
+  @media (max-width: 380px) {
+    .icon-btn { padding: 7px 8px; letter-spacing: 0.08em; }
+    .brand-text h1 { letter-spacing: 0.16em; }
+  }
+
+  @media (max-height: 560px) {
+    .reactor { width: clamp(118px, min(34vmin, 26vh), 200px); }
+    .interim { display: none; }
+    .console { max-height: 30vh; min-height: 96px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Ambient background layers -->
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-glow" aria-hidden="true"></div>
+
+  <!-- ============================================================
+       TOP HUD
+       ============================================================ -->
+  <header class="hud glass">
+    <div class="hud-left">
+      <div class="brand-mark" aria-hidden="true">◈</div>
+      <div class="brand-text">
+        <h1>J.A.R.V.I.S.</h1>
+        <p>Just A Rather Very Intelligent System</p>
+      </div>
+    </div>
+
+    <div class="hud-mid">
+      <div class="status-pill" id="statusPill" data-mode="idle" role="status" aria-live="polite">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="statusText">SYSTEM ONLINE</span>
+      </div>
+    </div>
+
+    <div class="hud-right">
+      <div class="clock-block">
+        <div class="clock" id="clock">--:--:--</div>
+        <div class="dateline" id="dateline">INITIALISING</div>
+      </div>
+      <button class="icon-btn" id="muteBtn" type="button" aria-pressed="false" title="Toggle JARVIS voice output">
+        🔊 VOICE ON
+      </button>
+    </div>
+  </header>
+
+  <!-- ============================================================
+       CENTREPIECE — ARC REACTOR
+       ============================================================ -->
+  <main class="stage">
+    <button class="reactor" id="reactor" type="button" aria-label="Activate microphone and speak to JARVIS">
+      <span class="ring-1" aria-hidden="true"></span>
+      <span class="ring-2" aria-hidden="true"></span>
+      <span class="ticks" aria-hidden="true"></span>
+      <span class="core" aria-hidden="true"></span>
+      <span class="core-inner" aria-hidden="true"></span>
+    </button>
+
+    <div class="reactor-caption" id="reactorCaption">TAP TO SPEAK</div>
+    <div class="interim" id="interim" aria-live="polite"></div>
+  </main>
+
+  <!-
